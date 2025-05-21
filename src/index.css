@@ -1,0 +1,230 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Explicitly define background colors for Tailwind v4 compatibility */
+.bg-white {
+  background-color: #ffffff;
+}
+
+.bg-black {
+  background-color: #000000;
+}
+
+.bg-card {
+  background-color: var(--color-card);
+}
+
+.text-white {
+  color: #ffffff;
+}
+
+.text-black {
+  color: #000000;
+}
+
+.backdrop-blur-md {
+  backdrop-filter: blur(12px);
+}
+
+.backdrop-blur-lg {
+  backdrop-filter: blur(16px);
+}
+
+/* Keyframe Animations */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Animation Classes */
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.animate-fade-in-right {
+  animation: fadeInRight 0.4s ease-out forwards;
+}
+
+.animate-pulse-slow {
+  animation: pulse 3s ease-in-out infinite;
+}
+
+.shimmer {
+  background: linear-gradient(90deg, 
+    rgba(255,255,255,0) 0%, 
+    rgba(255,255,255,0.2) 50%, 
+    rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Dark Mode Scrollbar */
+.dark ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  /* Custom color palette */
+  --color-background: #FFFFFF;
+  --color-card: #FFFFFF;
+  --color-text: #111827;
+  --color-primary: #00CFE8;
+  --color-status-healthy: #28C76F;
+  --color-status-warning: #FF9F43;
+  --color-status-critical: #EA5455;
+  --color-grid: #2C3E50;
+  --color-navbar: #FFFFFF;
+  --color-hover: #1E90FF;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  --shadow-color: 0deg 0% 0%;
+  --shadow-elevation-low:
+    0px 0.5px 0.6px hsl(var(--shadow-color) / 0.06),
+    0px 0.8px 1px -1.1px hsl(var(--shadow-color) / 0.05),
+    0px 1.9px 2.4px -2.3px hsl(var(--shadow-color) / 0.05);
+  --shadow-elevation-medium:
+    0px 0.5px 0.6px hsl(var(--shadow-color) / 0.08),
+    0px 1.8px 2.3px -0.8px hsl(var(--shadow-color) / 0.07),
+    0px 4.3px 5.4px -1.5px hsl(var(--shadow-color) / 0.06),
+    0px 10.1px 12.6px -2.3px hsl(var(--shadow-color) / 0.05);
+  --shadow-elevation-high:
+    0px 0.5px 0.6px hsl(var(--shadow-color) / 0.09),
+    0px 3.3px 4.1px -0.4px hsl(var(--shadow-color) / 0.08),
+    0px 6.2px 7.8px -0.7px hsl(var(--shadow-color) / 0.07),
+    0px 10.1px 12.6px -1.1px hsl(var(--shadow-color) / 0.06),
+    0px 16.3px 20.4px -1.5px hsl(var(--shadow-color) / 0.05),
+    0px 26.2px 32.8px -1.9px hsl(var(--shadow-color) / 0.04),
+    0px 41px 51.3px -2.3px hsl(var(--shadow-color) / 0.03);
+}
+
+/* Dark mode variables */
+.dark {
+  --color-background: #0B1D26;
+  --color-card: #2C3E50;
+  --color-text: #F1F2F6;
+  --color-primary: #00CFE8;
+  --color-navbar: #12263A;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow-x: hidden;
+}
+
+html {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom component styles */
+@layer components {
+  .glass-card {
+    @apply bg-card backdrop-blur-md border border-gray-200 dark:border-gray-700 shadow-lg;
+  }
+  
+  .btn-primary {
+    @apply px-4 py-2 bg-primary hover:bg-hover text-white rounded-lg transition-colors shadow-md;
+  }
+  
+  .input-field {
+    @apply px-4 py-2 bg-gray-50 dark:bg-grid border border-gray-200 dark:border-gray-600 rounded-lg outline-none transition-all focus:ring-2 focus:border-primary focus:ring-primary;
+  }
+}

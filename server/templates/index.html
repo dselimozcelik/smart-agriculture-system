@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Plant Disease Classification API</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+        h1 { color: #2c3e50; }
+        h2 { color: #3498db; margin-top: 30px; }
+        form { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .result { margin-top: 20px; padding: 15px; border-radius: 5px; }
+        .healthy { background-color: #d4edda; color: #155724; }
+        .disease { background-color: #f8d7da; color: #721c24; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        .endpoint { background: #e8f4f8; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+        .method { font-weight: bold; }
+        .method.get { color: #28a745; }
+        .method.post { color: #007bff; }
+    </style>
+</head>
+<body>
+    <h1>Plant Disease Classification API</h1>
+    <p>This server provides API endpoints for classifying plant diseases using a machine learning model.</p>
+    
+    <h2>Test the Model</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <p>Upload an image of a plant to detect diseases:</p>
+        <input type="file" name="image" accept="image/*" required>
+        <button type="submit">Analyze</button>
+    </form>
+
+    {% if prediction %}
+    <div class="result {% if 'healthy' in prediction %}healthy{% else %}disease{% endif %}">
+        <h3>Result: {{ prediction }}</h3>
+    </div>
+    {% endif %}
+
+    <h2>API Documentation</h2>
+    
+    <div class="endpoint">
+        <p><span class="method get">GET</span> /api/health</p>
+        <p>Health check endpoint to verify the API is running.</p>
+        <p>Response example:</p>
+        <pre>{
+  "status": "ok",
+  "model": "ResNet18",
+  "num_classes": 38
+}</pre>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method post">POST</span> /api/classify</p>
+        <p>Classify a plant image.</p>
+        <p>Input formats:</p>
+        <ul>
+            <li>Form data with an image file (key: "image")</li>
+            <li>JSON with base64-encoded image (key: "image")</li>
+        </ul>
+        <p>Response example:</p>
+        <pre>{
+  "prediction": "Tomato___healthy",
+  "confidence": 98.5,
+  "is_healthy": true,
+  "condition": "Healthy"
+}</pre>
+    </div>
+    
+    <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 0.9em;">
+        <p>Plant Disease Classification API | <a href="/">Home</a></p>
+    </footer>
+</body>
+</html> 
