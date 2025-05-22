@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
 
+interface MQTTSensorData {
+  temperature: number;
+  humidity: number;
+  ldr_analog: number;
+  soil_moisture: number;
+  timestamp: number;
+}
+
 interface PlantProps {
   plantId?: string;
   title?: string;
@@ -15,6 +23,7 @@ interface PlantProps {
   condition?: string;
   isClassified?: boolean;
   plantNumber?: number;
+  mqttData?: MQTTSensorData | null;
 }
 
 const Plant = ({ 
@@ -31,7 +40,8 @@ const Plant = ({
   plantType = '',
   condition = '',
   isClassified = false,
-  plantNumber
+  plantNumber,
+  mqttData
 }: PlantProps) => {
   const [isHovered, setIsHovered] = useState(false);
   
@@ -146,6 +156,9 @@ const Plant = ({
   const status = getStatusDetails();
   const plantStatus = getPlantStatus();
 
+  // Check if we have MQTT data
+  const hasMqttData = !!mqttData;
+
   return (
     <div 
       onClick={onSelect}
@@ -187,6 +200,22 @@ const Plant = ({
                 alt={plantType || title} 
                 className="w-full h-full object-cover"
               />
+              
+              {/* MQTT Data Overlay - always visible if MQTT data is available */}
+              {hasMqttData && (
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-2 text-xs">
+                  <div className="flex flex-wrap justify-between">
+                    <div className="flex items-center mr-1">
+                      <span className="mr-1">🌡️</span>
+                      <span>{mqttData.temperature.toFixed(1)}°C</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="mr-1">💧</span>
+                      <span>{mqttData.humidity.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -213,6 +242,22 @@ const Plant = ({
                   </div>
                 </div>
               </div>
+              
+              {/* MQTT Data Overlay for non-image plants */}
+              {hasMqttData && (
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-2 text-xs">
+                  <div className="flex flex-wrap justify-between">
+                    <div className="flex items-center mr-1">
+                      <span className="mr-1">🌡️</span>
+                      <span>{mqttData.temperature.toFixed(1)}°C</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="mr-1">💧</span>
+                      <span>{mqttData.humidity.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
           

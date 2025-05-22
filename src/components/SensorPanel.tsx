@@ -1,3 +1,6 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+
 interface PlantData {
   isPlanted: boolean;
   moisture: number;
@@ -11,10 +14,23 @@ interface PlantData {
   confidence?: number;
 }
 
+interface MQTTSensorData {
+  temperature: number;
+  humidity: number;
+  ldr_analog: number;
+  soil_moisture: number;
+  timestamp: number;
+}
+
 interface SensorPanelProps {
   plant: PlantData;
   onClose: () => void;
+  mqttData: MQTTSensorData;
+  alwaysVisible?: boolean;
 }
+
+// API base URL
+const API_URL = 'http://localhost:5001/api';
 
 // Helper function to determine color based on value
 const getStatusColor = (
@@ -131,34 +147,16 @@ const CircularGauge = ({
 
 const SensorPanel = ({
   plant,
-  onClose
+  onClose,
+  mqttData,
+  alwaysVisible = false
 }: SensorPanelProps) => {
-  const { moisture, temperature, light, humidity, plantType, isClassified, condition, confidence } = plant;
-  
-  // Generate a plant health score based on the sensor values
-  const calculateHealthScore = () => {
-    // If the plant is classified, return a score based on the condition
-    if (isClassified && condition) {
-      if (condition.includes('Healthy')) return 90;
-      if (condition.includes('Critical')) return 30;
-      return 60; // Warning
-    }
-    
-    // Otherwise, calculate based on sensor data
-    const moistureScore = moisture < 30 || moisture > 80 ? 0 : (moisture < 40 || moisture > 70 ? 5 : 10);
-    const tempScore = temperature < 10 || temperature > 35 ? 0 : (temperature < 15 || temperature > 30 ? 5 : 10);
-    const lightScore = light < 20 ? 0 : (light < 30 ? 5 : 10);
-    const humidityScore = humidity < 30 ? 0 : (humidity < 40 ? 5 : 10);
-    
-    return Math.min(100, ((moistureScore + tempScore + lightScore + humidityScore) / 40) * 100);
-  };
-
   // Format the plant type for display
   const getFormattedPlantType = () => {
-    if (!plantType) return 'Plant Details';
+    if (!plant || !plant.plantType) return 'MQTT Sensor Data';
     
     // Extract just the plant name before any underscores or special characters
-    const basicName = plantType
+    const basicName = plant.plantType
       .split('___')[0]  // Split on triple underscore first
       .split('__')[0]   // Split on double underscore
       .split('_')[0]    // Split on single underscore
@@ -169,71 +167,50 @@ const SensorPanel = ({
     // Capitalize first letter
     return basicName.charAt(0).toUpperCase() + basicName.slice(1);
   };
-  
-  const healthScore = calculateHealthScore();
-  const healthStatus = isClassified && condition 
-    ? condition 
-    : (healthScore >= 80 ? 'Excellent' : 
-       healthScore >= 60 ? 'Good' : 
-       healthScore >= 40 ? 'Fair' : 
-       'Poor');
-  
-  // Modern color scheme for health status
-  const healthStatusClass = isClassified && condition
-    ? (condition.includes('Healthy') 
-        ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white'
-        : condition.includes('Critical') 
-        ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white'
-        : 'bg-gradient-to-r from-amber-600 to-amber-700 text-white')
-    : (healthScore >= 80 
-      ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white' 
-      : healthScore >= 60 
-      ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white' 
-      : healthScore >= 40 
-      ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white' 
-      : 'bg-gradient-to-r from-rose-600 to-rose-700 text-white');
-  
-  const progressBarClass = isClassified && condition
-    ? (condition.includes('Healthy') 
-        ? 'bg-emerald-600'
-        : condition.includes('Critical') 
-        ? 'bg-rose-600'
-        : 'bg-amber-600')
-    : (healthScore >= 80 
-      ? 'bg-emerald-600' 
-      : healthScore >= 60 
-      ? 'bg-teal-600' 
-      : healthScore >= 40 
-      ? 'bg-amber-600' 
-      : 'bg-rose-600');
+
+  if (!mqttData) {
+    return (
+      <div className="bg-white dark:bg-grid rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6 w-[400px]">
+        <div className="flex justify-between items-start mb-6">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-text-dark">
+            Loading sensor data...
+          </h3>
+          {!alwaysVisible && (
+            <button 
+              onClick={onClose}
+              className="ml-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white dark:bg-grid rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6 w-[400px]">
       <div className="flex justify-between items-start mb-6">
         <div>
           <h3 className="text-xl font-bold text-gray-900 dark:text-text-dark mb-1">
-            {getFormattedPlantType()}
+            {alwaysVisible ? 'Live MQTT Sensor Data' : getFormattedPlantType()}
           </h3>
           <div className="flex items-center">
-            {isClassified && (
-              <span className="inline-flex items-center px-2 py-1 mr-2 rounded-full text-xs font-medium bg-primary bg-opacity-10 dark:bg-primary dark:bg-opacity-20 text-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                ML Classified
-              </span>
-            )}
+            <span className="inline-flex items-center px-2 py-1 mr-2 rounded-full text-xs font-medium bg-blue-500 bg-opacity-10 text-blue-600">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              ESP32 Sensors
+            </span>
+            <span className="text-xs text-gray-500">Last updated: {new Date(mqttData.timestamp * 1000).toLocaleTimeString()}</span>
           </div>
         </div>
-        <div className="flex items-center">
-          <div className={`px-4 py-2 rounded-full shadow-sm ${healthStatusClass}`}>
-            <span className="text-base font-semibold">
-              {isClassified && condition 
-                ? (condition.includes('Healthy') ? 'Healthy' : 
-                   condition.includes('Critical') ? 'Critical' : 'Warning')
-                : healthStatus}
-            </span>
-          </div>
+        {!alwaysVisible && (
           <button 
             onClick={onClose}
             className="ml-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
@@ -242,100 +219,27 @@ const SensorPanel = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-        </div>
+        )}
       </div>
-      
-      {/* Health score visualization */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-            {isClassified ? 'ML Classification Score' : 'Health Score'}
-          </span>
-          <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
-            {isClassified && confidence ? `${Math.round(confidence)}%` : `${Math.round(healthScore)}%`}
-          </span>
-        </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-          <div 
-            className={`h-2.5 rounded-full ${progressBarClass}`} 
-            style={{ width: `${isClassified && confidence ? confidence : healthScore}%` }}
-          ></div>
-        </div>
-      </div>
-      
-      {/* Classification result (if available) */}
-      {isClassified && condition && (
-        <div className="mb-6 p-4 rounded-lg bg-opacity-10 border" 
-             style={{ 
-               backgroundColor: condition.includes('Healthy') ? 'rgba(16, 185, 129, 0.1)' : 
-                               condition.includes('Critical') ? 'rgba(239, 68, 68, 0.1)' : 
-                               'rgba(245, 158, 11, 0.1)',
-               borderColor: condition.includes('Healthy') ? 'rgba(16, 185, 129, 0.3)' : 
-                           condition.includes('Critical') ? 'rgba(239, 68, 68, 0.3)' : 
-                           'rgba(245, 158, 11, 0.3)'
-             }}
-        >
-          <div className="flex items-start">
-            <div className={`p-2 rounded-full mr-3`}
-                 style={{ 
-                   backgroundColor: condition.includes('Healthy') ? 'rgba(16, 185, 129, 0.2)' : 
-                                   condition.includes('Critical') ? 'rgba(239, 68, 68, 0.2)' : 
-                                   'rgba(245, 158, 11, 0.2)'
-                 }}
-            >
-              {condition.includes('Healthy') ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              ) : condition.includes('Critical') ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              )}
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold mb-1"
-                  style={{ 
-                    color: condition.includes('Healthy') ? 'rgb(16, 185, 129)' : 
-                           condition.includes('Critical') ? 'rgb(239, 68, 68)' : 
-                           'rgb(245, 158, 11)'
-                  }}
-              >
-                ML Classification Result
-              </h4>
-              <p className="text-sm text-gray-700 dark:text-gray-300">{condition}</p>
-              {confidence && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Confidence: {Math.round(confidence)}%
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
       
       {/* Sensor data */}
       <div className="grid grid-cols-2 gap-4">
         <CircularGauge 
-          value={moisture} 
+          value={mqttData.soil_moisture} 
           label="Moisture" 
           icon="💧"
           warningThreshold={70}
           criticalThreshold={90}
         />
         <CircularGauge 
-          value={temperature} 
+          value={mqttData.temperature} 
           label="Temperature" 
           icon="🌡️"
           warningThreshold={70}
           criticalThreshold={90}
         />
         <CircularGauge 
-          value={light} 
+          value={mqttData.ldr_analog / 10} // Scale down for display
           label="Light" 
           icon="☀️"
           warningThreshold={20}
@@ -343,7 +247,7 @@ const SensorPanel = ({
           reverse={true}
         />
         <CircularGauge 
-          value={humidity} 
+          value={mqttData.humidity} 
           label="Humidity" 
           icon="💦"
           warningThreshold={30}
@@ -351,6 +255,7 @@ const SensorPanel = ({
           reverse={true}
         />
       </div>
+      
     </div>
   );
 };

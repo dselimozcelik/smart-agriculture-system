@@ -22,9 +22,60 @@ import os
 import base64
 import io
 import json
+import paho.mqtt.client as mqtt
+import threading
+import time
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+# MQTT Configuration
+mqtt_server = "broker.hivemq.com"
+mqtt_topic = "esp32/sensors"
+sensor_data = {
+    "temperature": 0,
+    "humidity": 0,
+    "ldr_analog": 0,
+    "soil_moisture": 0,
+    "timestamp": time.time()
+}
+
+# MQTT callbacks
+def on_connect(client, userdata, flags, rc):
+    print(f"Connected to MQTT broker with code {rc}")
+    client.subscribe(mqtt_topic)
+    print(f"Subscribed to topic: {mqtt_topic}")
+
+def on_message(client, userdata, msg):
+    global sensor_data
+    try:
+        payload = msg.payload.decode()
+        print(f"Received: {payload}")
+        data = json.loads(payload)
+        # Update sensor data
+        sensor_data = {
+            "temperature": data.get("temperature", 0),
+            "humidity": data.get("humidity", 0),
+            "ldr_analog": data.get("ldr_analog", 0),
+            "soil_moisture": data.get("soil_moisture", 0),
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        print(f"Error processing MQTT message: {e}")
+
+# Setup MQTT client
+mqtt_client = mqtt.Client()
+mqtt_client.on_connect = on_connect
+mqtt_client.on_message = on_message
+
+# Start MQTT client in a separate thread
+def start_mqtt_client():
+    try:
+        mqtt_client.connect(mqtt_server, 1883, 60)
+        mqtt_client.loop_forever()
+    except Exception as e:
+        print(f"MQTT connection error: {e}")
+        time.sleep(5)  # Wait before retry
 
 # 🔁 Model sınıf isimleri
 class_names = [
@@ -130,6 +181,14 @@ def health_check():
         'num_classes': len(class_names)
     })
 
+@app.route('/api/sensors', methods=['GET'])
+def get_sensor_data():
+    return jsonify(sensor_data)
+
+@app.route('/sensors', methods=['GET'])
+def sensors_page():
+    return render_template('sensors.html')
+
 if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
     
@@ -148,9 +207,15 @@ if __name__ == '__main__':
         .result { margin-top: 20px; padding: 10px; border-radius: 5px; }
         .healthy { background-color: #d4edda; color: #155724; }
         .disease { background-color: #f8d7da; color: #721c24; }
+        nav { margin-bottom: 20px; }
+        nav a { margin-right: 15px; text-decoration: none; color: #3498db; }
     </style>
 </head>
 <body>
+    <nav>
+        <a href="/">Disease Detection</a>
+        <a href="/sensors">Sensor Data</a>
+    </nav>
     <h1>Plant Disease Classification</h1>
     <p>Upload an image of a plant to detect diseases.</p>
     
@@ -167,6 +232,181 @@ if __name__ == '__main__':
 </body>
 </html>
             ''')
+    
+    # Create sensors.html for visualizing sensor data
+    if not os.path.exists('templates/sensors.html'):
+        with open('templates/sensors.html', 'w') as f:
+            f.write('''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Agriculture Sensors</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }
+        h1 { color: #2c3e50; }
+        .sensor-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
+        .sensor-card { background-color: #f8f9fa; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .sensor-value { font-size: 2.5rem; font-weight: bold; margin: 10px 0; }
+        .chart-container { height: 400px; margin-top: 30px; }
+        nav { margin-bottom: 20px; }
+        nav a { margin-right: 15px; text-decoration: none; color: #3498db; }
+        .temp { color: #e74c3c; }
+        .humidity { color: #3498db; }
+        .light { color: #f39c12; }
+        .soil { color: #27ae60; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Disease Detection</a>
+        <a href="/sensors">Sensor Data</a>
+    </nav>
+    <h1>Smart Agriculture Sensor Data</h1>
+    
+    <div class="sensor-grid">
+        <div class="sensor-card">
+            <h2>Temperature</h2>
+            <div class="sensor-value temp" id="temperature">--</div>
+            <div>°C</div>
+        </div>
+        <div class="sensor-card">
+            <h2>Humidity</h2>
+            <div class="sensor-value humidity" id="humidity">--</div>
+            <div>%</div>
+        </div>
+        <div class="sensor-card">
+            <h2>Light Level</h2>
+            <div class="sensor-value light" id="light">--</div>
+            <div>lux</div>
+        </div>
+        <div class="sensor-card">
+            <h2>Soil Moisture</h2>
+            <div class="sensor-value soil" id="soil">--</div>
+            <div>%</div>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="sensorChart"></canvas>
+    </div>
+
+    <script>
+        // Initialize chart with empty data
+        const ctx = document.getElementById('sensorChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Temperature (°C)',
+                        data: [],
+                        borderColor: '#e74c3c',
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: 'Humidity (%)',
+                        data: [],
+                        borderColor: '#3498db',
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: 'Light Level',
+                        data: [],
+                        borderColor: '#f39c12',
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: 'Soil Moisture (%)',
+                        data: [],
+                        borderColor: '#27ae60',
+                        tension: 0.1,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Store historical data
+        const historyData = {
+            timestamps: [],
+            temperature: [],
+            humidity: [],
+            light: [],
+            soil: []
+        };
+
+        // Update sensor values
+        function updateSensorValues() {
+            fetch('/api/sensors')
+                .then(response => response.json())
+                .then(data => {
+                    // Update display values
+                    document.getElementById('temperature').textContent = data.temperature.toFixed(1);
+                    document.getElementById('humidity').textContent = data.humidity.toFixed(1);
+                    document.getElementById('light').textContent = data.ldr_analog;
+                    document.getElementById('soil').textContent = data.soil_moisture;
+                    
+                    // Update history
+                    const now = new Date();
+                    const timeString = now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds();
+                    
+                    // Limit history to last 20 points
+                    if (historyData.timestamps.length > 20) {
+                        historyData.timestamps.shift();
+                        historyData.temperature.shift();
+                        historyData.humidity.shift();
+                        historyData.light.shift();
+                        historyData.soil.shift();
+                    }
+                    
+                    historyData.timestamps.push(timeString);
+                    historyData.temperature.push(data.temperature);
+                    historyData.humidity.push(data.humidity);
+                    historyData.light.push(data.ldr_analog);
+                    historyData.soil.push(data.soil_moisture);
+                    
+                    // Update chart
+                    chart.data.labels = historyData.timestamps;
+                    chart.data.datasets[0].data = historyData.temperature;
+                    chart.data.datasets[1].data = historyData.humidity;
+                    chart.data.datasets[2].data = historyData.light;
+                    chart.data.datasets[3].data = historyData.soil;
+                    chart.update();
+                })
+                .catch(error => console.error('Error fetching sensor data:', error));
+        }
+
+        // Initial update and set interval
+        updateSensorValues();
+        setInterval(updateSensorValues, 2000); // Update every 2 seconds
+    </script>
+</body>
+</html>
+            ''')
+    
+    # Start MQTT client in a background thread
+    mqtt_thread = threading.Thread(target=start_mqtt_client, daemon=True)
+    mqtt_thread.start()
     
     print("Starting server on http://127.0.0.1:5001")
     app.run(debug=True, host='0.0.0.0', port=5001)

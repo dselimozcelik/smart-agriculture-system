@@ -108,6 +108,15 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return shuffled;
 };
 
+// Interface for MQTT sensor data
+interface MQTTSensorData {
+  temperature: number;
+  humidity: number;
+  ldr_analog: number;
+  soil_moisture: number;
+  timestamp: number;
+}
+
 const Field = ({ rows = 4, columns = 4 }: FieldProps) => {
   // Initialize plants with random selection from pairs
   const initializePlants = () => {
@@ -168,6 +177,10 @@ const Field = ({ rows = 4, columns = 4 }: FieldProps) => {
   const [isClassifying, setIsClassifying] = useState(false);
   const [classificationComplete, setClassificationComplete] = useState(false);
   const [apiStatus, setApiStatus] = useState({ available: false, checked: false });
+  const [mqttData, setMqttData] = useState<MQTTSensorData | null>(null);
+
+  // Always show the sensor panel, not just when a plant is selected
+  const [sensorPanelVisible, setSensorPanelVisible] = useState(true);
 
   // Check if the API is available
   useEffect(() => {
@@ -186,6 +199,56 @@ const Field = ({ rows = 4, columns = 4 }: FieldProps) => {
     
     checkApiStatus();
   }, []);
+
+  // Fetch MQTT sensor data
+  useEffect(() => {
+    const fetchMqttData = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/sensors`);
+        setMqttData(response.data);
+        
+        // Update plants with real sensor data
+        if (response.data) {
+          updatePlantsWithSensorData(response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching MQTT data:', error);
+      }
+    };
+    
+    // Initial fetch
+    fetchMqttData();
+    
+    // Set interval to fetch data every 5 seconds
+    const interval = setInterval(fetchMqttData, 5000);
+    
+    // Cleanup
+    return () => clearInterval(interval);
+  }, []);
+
+  // Function to update plants with real MQTT sensor data
+  const updatePlantsWithSensorData = (data: MQTTSensorData) => {
+    // Make a copy of the current plants
+    const updatedPlants = [...plants];
+    
+    // Find a random plant to update with the sensor data
+    // This simulates that this specific plant has the sensor attached
+    const randomRow = Math.floor(Math.random() * rows);
+    const randomCol = Math.floor(Math.random() * columns);
+    
+    // Only update if there's a plant in this position
+    if (updatedPlants[randomRow][randomCol].isPlanted) {
+      updatedPlants[randomRow][randomCol] = {
+        ...updatedPlants[randomRow][randomCol],
+        moisture: data.soil_moisture,
+        temperature: data.temperature,
+        humidity: data.humidity,
+        light: data.ldr_analog / 10  // Scale down to a percentage-like value
+      };
+      
+      setPlants(updatedPlants);
+    }
+  };
 
   // Check plant conditions and update stats
   useEffect(() => {
@@ -514,6 +577,7 @@ const Field = ({ rows = 4, columns = 4 }: FieldProps) => {
                     condition={plant.condition}
                     isClassified={plant.isClassified}
                     plantNumber={plantNumber}
+                    mqttData={mqttData}
                   />
                 </div>
               );
@@ -521,12 +585,20 @@ const Field = ({ rows = 4, columns = 4 }: FieldProps) => {
           ))}
         </div>
 
-        {/* Plant detail panel - positioned to the right */}
+        {/* Plant detail panel - always visible */}
         <div className="flex-shrink-0">
-          {selectedPlant && (
+          {mqttData && (
             <SensorPanel 
-              plant={plants[selectedPlant.row][selectedPlant.col]} 
+              plant={selectedPlant ? plants[selectedPlant.row][selectedPlant.col] : {
+                isPlanted: true,
+                moisture: 0,
+                temperature: 0,
+                light: 0,
+                humidity: 0
+              }} 
               onClose={() => setSelectedPlant(null)}
+              mqttData={mqttData}
+              alwaysVisible={true}
             />
           )}
         </div>
